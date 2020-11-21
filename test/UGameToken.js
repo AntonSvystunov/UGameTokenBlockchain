@@ -1,30 +1,10 @@
-const _deploy_contracts = require("../migrations/2_deploy_contracts")
-
 const UGameToken = artifacts.require('./UGameToken.sol')
 
 const testInitial = 4000000;
 
 contract('UGameToken', accounts => {
     let tokenInstance;
-    it('sets correct names to currency', () => {
-        return UGameToken.deployed()
-            .then(instance => {
-                tokenInstance = instance;
-                return tokenInstance.name();
-            })
-            .then(name => {
-                assert.equal(name, 'UGame Token', 'name is assigned correctly');
-                return tokenInstance.symbol();
-            })
-            .then(symbol => {
-                assert.equal(symbol, 'UGT', 'symbol is assigned correctly');
-                return tokenInstance.decimals();
-            })
-            .then(decimals => {
-                assert.equal(decimals, 8, 'decimals is assigned correctly')
-            });
-    });
-
+    
     it('sets the total supply after deployed', () => {
         return UGameToken.deployed()
             .then(instance => {
@@ -140,20 +120,6 @@ contract('UGameToken', accounts => {
             .then(function (allowance) {
                 assert.equal(allowance.toNumber(), 0, 'deducts the amount from the allowance');
             });
-    });
-
-    it('computes commision', () => {
-        let c;
-        return UGameToken.deployed().then(function (instance) {
-            tokenInstance = instance;
-            return tokenInstance.commission();
-        }).then(commission => {
-            c = commission;
-            assert.equal(commission, 10, 'Commision is 10%');
-            return tokenInstance.calculateCommision(100);
-        }).then(deducted => {
-            assert.equal(deducted, 10);
-        });
     });
 
     it('approves tokens for delegated transfer', function () {

@@ -3,7 +3,6 @@ pragma solidity ^0.5.0;
 contract UGameToken {
     string public name = 'UGame Token';
     string public symbol = 'UGT';
-    uint8 public decimals = 8;
 
     uint256 public totalSupply;
     uint8 public commission;
@@ -53,19 +52,12 @@ contract UGameToken {
         require(_value <= allowance[_from][msg.sender]);
 
         balanceOf[_from] -= _value;
-
-        uint256 c = calculateCommision(_value);
-        balanceOf[_to] += _value - c;
-        balanceOf[msg.sender] += c;
+        balanceOf[_to] += _value;
 
         allowance[_from][msg.sender] -= _value;
 
         emit Transfer(_from, _to, _value);
 
         return true;
-    }
-
-    function calculateCommision(uint256 _value) public view returns (uint256 deducted) {
-        return (_value / 100) * commission;
     }
 }

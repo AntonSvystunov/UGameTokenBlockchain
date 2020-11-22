@@ -8,6 +8,19 @@ contract Oracle is Ownable, ChainlinkClient {
     Match[] matches;
     mapping(bytes32 => uint) matchIdToIndex; 
 
+    event MatchAdded (
+        address indexed _by,
+        address _player1,
+        address _player2,
+        bytes32 indexed _matchId,
+        uint256 _matchValue
+    );
+
+    event MatchFinished(
+        address indexed _by,
+        bytes32 indexed _matchId,
+        address _winner
+    );
 
     enum MatchOutcome {
         Planned,
@@ -28,8 +41,19 @@ contract Oracle is Ownable, ChainlinkClient {
     UGameToken public tokenCotract;
     address payable internal admin;
 
+    address private oracle;
+    bytes32 private jobId;
+    uint256 private fee;
+
     constructor(UGameToken _tokenContract) public {
         tokenCotract = _tokenContract;
+        admin = msg.sender;
+        setPublicChainlinkToken();
+
+        // Change in future!
+        oracle = 0x2f90A6D021db21e1B2A077c5a37B3C7E75D15b7e;
+        jobId = "29fa9aa13bf1468788b7cc4a500a45b8";
+        fee = 0.1 * 10 ** 18; 
     }
 
     function getMatch(bytes32 _matchId) public view returns (bytes32 id,
@@ -87,22 +111,17 @@ contract Oracle is Ownable, ChainlinkClient {
     }
 
     function addMatch(bytes32 _id, address _player1, address _player2, uint256 _matchValue) public {
-        
-        //require(msg.sender == _player1 || msg.sender == _player2);
         require(!matchExists(_id));
-
+        
         uint newIndex = matches.push(Match(_id, _player1, _player2, MatchOutcome.Planned, _matchValue, address(0x0), false, false)) - 1; 
         matchIdToIndex[_id] = newIndex + 1;
+        emit MatchAdded(msg.sender, _player1, _player2, _id, _matchValue);
     }
 
     function addMatchByid(string memory _id, address _player1, address _player2, uint256 _matchValue) public {
-        
         //require(msg.sender == _player1 || msg.sender == _player2);
         bytes32 genId = keccak256(abi.encodePacked(_id));
-        require(!matchExists(genId));
-
-        uint newIndex = matches.push(Match(genId, _player1, _player2, MatchOutcome.Planned, _matchValue, address(0x0), false, false)) - 1; 
-        matchIdToIndex[genId] = newIndex + 1;
+        addMatch(genId, _player1, _player2, _matchValue);
     }
 
     function playerInMatchAndNotPayed(bytes32 _matchId, address _player) public view returns (bool) {
@@ -124,6 +143,26 @@ contract Oracle is Ownable, ChainlinkClient {
             matches[index].player1Payed = true;
         } else {
             matches[index].player2Payed = true;
+        }
+    }
+    // For test only
+    function updateOracle(string memory _matchId, address _winner) public {
+        bytes32 genId = keccak256(abi.encodePacked(_matchId));
+        require(matchExists(genId));
+        uint index = matchIdToIndex[genId];
+        require(matches[index].outcome == MatchOutcome.Planned); 
+
+        if (_winner == matches[index].player1 || _winner == matches[index].player2) {
+            matches[index].winner = _winner;
+            matches[index].outcome = MatchOutcome.Planned;
+
+            if (_winner == matches[index].player1) {
+                tokenCotract.transferFrom(matches[index].player1, matches[index].player2, matches[index].matchValue);
+            } else {
+                tokenCotract.transferFrom(matches[index].player2, matches[index].player1, matches[index].matchValue);
+            }
+        } else {
+            revert('Winner not participant');
         }
     }
 }

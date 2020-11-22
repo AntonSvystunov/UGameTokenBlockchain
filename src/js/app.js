@@ -19,7 +19,7 @@ App = {
       web3 = new Web3(web3.currentProvider);
     } else {
       // Specify default instance if no web3 instance provided
-      App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
+      App.web3Provider = new Web3.providers.HttpProvider('http://127.0.0.1:7545/');
       web3 = new Web3(App.web3Provider);
     }
     return App.initContracts();
@@ -81,7 +81,6 @@ App = {
 
     // Load account data
     web3.eth.getCoinbase(function(err, account) {
-      if (err)
       if(err === null) {
         App.account = account;
         $('#accountAddress').html("Your Account: " + account);
@@ -110,6 +109,16 @@ App = {
         return ugameTokenInstance.balanceOf(App.account);
       }).then(function(balance) {
         $('.dapp-balance').html(balance.toNumber());
+      
+        //Load
+      App.contracts.Oracle.deployed().then(function (instance){
+        OracleInstance = instance;
+        return OracleInstance.getMatches();
+      }).then(function (matches){
+        $('.matches').html(matches);
+        console.log(matches);
+      })
+
         App.loading = false;
         loader.hide();
         content.show();
@@ -123,23 +132,15 @@ App = {
     var num
   },
 
-  getMatches: function(){
 
-  },
-
-  buyTokens: function() {
-    $('#content').hide();
-    $('#loader').show();
-    var numberOfTokens = $('#numberOfTokens').val();
-    App.contracts.UGameTokenSale.deployed().then(function(instance) {
-      return instance.buyTokens(numberOfTokens, {
-        from: App.account,
-        value: numberOfTokens * App.tokenPrice,
-        gas: 500000 // Gas limit
+  addMatch: function() {
+    // $('#content').hide();
+    // $('#loader').show();
+    App.UGameToken.
+    App.contracts.Oracle.deployed().then(function(instance) {
+      return instance.addMatchByid("1", "0xD6595A06D267EF88C3E32886e0Eb6149118a80B5", "0xD6595A06D267EF88C3E32886e0Eb6149118a80B5", 23).then(function(result) {
+        console.log('OK');
       });
-    }).then(function(result) {
-      $('form').trigger('reset') // reset number of tokens in form
-      // Wait for Sell event
     });
   }
 }

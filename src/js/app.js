@@ -136,9 +136,12 @@ App = {
   addMatch: function() {
     // $('#content').hide();
     // $('#loader').show();
-    App.UGameToken.
+    // App.UGameToken.
+    // web3.eth.getAccounts().then((data)=>{
+    //   console.log(data);
+    // });
     App.contracts.Oracle.deployed().then(function(instance) {
-      return instance.addMatchByid("1", "0xD6595A06D267EF88C3E32886e0Eb6149118a80B5", "0xD6595A06D267EF88C3E32886e0Eb6149118a80B5", 23).then(function(result) {
+      return instance.addMatchByid("1", 0xD6595A06D267EF88C3E32886e0Eb6149118a80B5, 0xD6595A06D267EF88C3E32886e0Eb6149118a80B5, 23).then(function(result) {
         console.log('OK');
       });
     });

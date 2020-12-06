@@ -4,7 +4,7 @@ import './Ownable.sol';
 import "@chainlink/contracts/src/v0.5/ChainlinkClient.sol";
 import './UGameToken.sol';
 
-contract Oracle is Ownable, ChainlinkClient {
+contract Oracle {
     Match[] matches;
     mapping(bytes32 => uint) matchIdToIndex; 
 
@@ -20,6 +20,11 @@ contract Oracle is Ownable, ChainlinkClient {
         address indexed _by,
         bytes32 indexed _matchId,
         address _winner
+    );
+
+    event BetSet(
+        address indexed _by,
+        bytes32 indexed _matchId
     );
 
     enum MatchOutcome {
@@ -112,10 +117,14 @@ contract Oracle is Ownable, ChainlinkClient {
 
     function addMatch(bytes32 _id, address _player1, address _player2, uint256 _matchValue) public {
         require(!matchExists(_id));
-        
+        //require(msg.sender == _player1 || msg.sender == _player2);
+
         uint newIndex = matches.push(Match(_id, _player1, _player2, MatchOutcome.Planned, _matchValue, address(0x0), false, false)) - 1; 
         matchIdToIndex[_id] = newIndex + 1;
+
         emit MatchAdded(msg.sender, _player1, _player2, _id, _matchValue);
+
+        // require(payForBet(_id), 'Could not pay the bet');
     }
 
     function addMatchByid(string memory _id, address _player1, address _player2, uint256 _matchValue) public {
@@ -127,44 +136,53 @@ contract Oracle is Ownable, ChainlinkClient {
     function playerInMatchAndNotPayed(bytes32 _matchId, address _player) public view returns (bool) {
         if (matches.length == 0)
             return false;
-        uint index = matchIdToIndex[_matchId]; 
+        Match storage matchFound = matches[_getMatchIndex(_matchId)];
 
-        return (matches[index].player1 == _player && !matches[index].player1Payed) || (matches[index].player2 == _player && !matches[index].player2Payed);
+        return (matchFound.player1 == _player && !matchFound.player1Payed) || (matchFound.player2 == _player && !matchFound.player2Payed);
     }
 
-    function payForBet(bytes32 _matchId) public payable {
-        require(matchExists(_matchId));
+    function payForBetById(string memory _id) public payable returns(bool) {
+        bytes32 genId = keccak256(abi.encodePacked(_id));
+        return payForBet(genId);
+    }
+
+    function payForBet(bytes32 _matchId)  public payable returns(bool) {
+        require(matchExists(_matchId), 'Match does not exists');
         require(playerInMatchAndNotPayed(_matchId, msg.sender));
 
-        uint index = matchIdToIndex[_matchId]; 
+        Match storage matchFound = matches[_getMatchIndex(_matchId)];
 
-        tokenCotract.transferFrom(msg.sender, admin, matches[index].matchValue);
-        if (msg.sender == matches[index].player1) {
-            matches[index].player1Payed = true;
+        tokenCotract.transferFrom(msg.sender, address(this), matchFound.matchValue);
+        if (msg.sender == matchFound.player1) {
+            matchFound.player1Payed = true;
         } else {
-            matches[index].player2Payed = true;
+            matchFound.player2Payed = true;
         }
+        emit BetSet(msg.sender,_matchId);
+        return true;
     }
     // For test only
     function updateOracle(string memory _matchId, address _winner) public {
         bytes32 genId = keccak256(abi.encodePacked(_matchId));
-        require(matchExists(genId));
-        uint index = matchIdToIndex[genId];
-        require(matches[index].outcome == MatchOutcome.Planned); 
+        require(matchExists(genId), 'Match doesnt exist');
+        Match storage matchFound = matches[_getMatchIndex(genId)];
+        require(matchFound.outcome == MatchOutcome.Planned, 'Match has been already finished'); 
+        // require(_winner == matchFound.player1 || _winner == matchFound.player2, 'Winner is not a participant');
+        // Match storage theMatch = matches[index];
+        
+        matchFound.winner = _winner;
+        matchFound.outcome = MatchOutcome.Finished;
+        
+        emit MatchFinished(msg.sender, genId, _winner);
 
-        if (_winner == matches[index].player1 || _winner == matches[index].player2) {
-            matches[index].winner = _winner;
-            matches[index].outcome = MatchOutcome.Planned;
-
-            if (_winner == matches[index].player1) {
-                tokenCotract.transferFrom(matches[index].player1, matches[index].player2, matches[index].matchValue);
-            } else {
-                tokenCotract.transferFrom(matches[index].player2, matches[index].player1, matches[index].matchValue);
-            }
-
-            emit MatchFinished(msg.sender, genId, _winner);
-        } else {
-            revert('Winner not participant');
-        }
+        // if (matchFound.player1Payed && matchFound.player2Payed) {
+        //     tokenCotract.transfer(_winner, matchFound.matchValue);
+        // } else {
+        //     if (matchFound.player1Payed) {
+        //         tokenCotract.transfer(matchFound.player1, matchFound.matchValue);
+        //     } else if (matchFound.player2Payed) {
+        //         tokenCotract.transfer(matchFound.player2, matchFound.matchValue);
+        //     }
+        // }      
     }
 }

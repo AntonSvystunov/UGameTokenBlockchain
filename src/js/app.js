@@ -247,7 +247,23 @@ App = {
             }).watch(function (error, event) {
                 console.log("event triggered", event);
                 App.render();
-            })
+            });
+            
+            instance.MatchFinished({}, {
+                fromBlock: 0,
+                toBlock: 'latest',
+            }).watch(function (error, event) {
+                console.log("event triggered", event);
+                App.render();
+            });
+
+            instance.BetSet({}, {
+                fromBlock: 0,
+                toBlock: 'latest',
+            }).watch(function (error, event) {
+                console.log("event triggered", event);
+                App.render();
+            });
         });
     },
 
@@ -308,14 +324,16 @@ App = {
                             player2: ent[2],
                             outcome: ent[3].toNumber() == 0 ? 'Planned' : 'Finished',
                             matchValue: ent[4].toNumber(),
-                            winnerId: ent[5]
+                            winnerId: ent[5],
+                            player1Payed: ent[6],
+                            player2Payed: ent[7]
                         }));
 
                         let markup = matches.map(match => `
                             <tr>
                                 <th scope="row">${match.id}</th>
-                                <td>${match.player1}</td>
-                                <td>${match.player2}</td>
+                                <td>${match.player1} ${match.player1Payed}</td>
+                                <td>${match.player2} ${match.player2Payed}</td>
                                 <td>${match.outcome}</td>
                                 <td>${match.matchValue} UGT</td>
                                 <td>${match.winnerId}</td>
@@ -376,6 +394,44 @@ App = {
         }).then(function (reset) {
             console.log('Match added');
         });
+    },
+
+    updateMatch: function(id, winner) {
+        $('#content').hide();
+        $('#loader').show();
+
+        App.contracts.Oracle.deployed().then(function(instance) {
+            return instance.updateOracle(id, winner, {
+                from: App.account,
+                value: 0,
+                gas: 500000
+            });
+        }).then(function(result) {
+            console.log('Match finished');
+        });
+    },
+
+    setBet: function(id) {      
+        $('#content').hide();
+        $('#loader').show();
+        
+        // let oracle = null;
+
+        // App.contracts.Oracle.deployed()
+        // .then(function(instance) {
+        //     oracle = instance;
+        //     return App.contracts.UGameToken.deployed();
+        // })
+        // .then(function(utoken) {
+        //     return utoken.approve()
+        //     return instance.payForBetById(id, {
+        //         from: App.account,
+        //         value: 0,
+        //         gas: 500000
+        //     });
+        // }).then(function(result) {
+        //     console.log('Bet set');
+        // });
     }
 }
 

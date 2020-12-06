@@ -111,30 +111,30 @@
 //       }).then(function (balance) {
 //         $('.dapp-balance').html(balance.toNumber());
 
-        
+
 //         //Load
 //         App.contracts.Oracle.deployed().then(function (instance) {
 //           OracleInstance = instance;
 //           return OracleInstance.getMatches();
 //         }).then(function (matches) {
-//           Promise.all(matches.map(m => OracleInstance.getMatch(m)))
-//           .then(result => {
-//             const matches = result.map(ent => ({
-//               id: ent[0],
-//               player1: ent[1],
-//               player2: ent[2],
-//               outcome: ent[3].toNumber() == 0 ? 'Planned' : 'Finished',
-//               matchValue: ent[4].toNumber(),
-//               winnerId: ent[5]
-//             }));
+//   Promise.all(matches.map(m => OracleInstance.getMatch(m)))
+//   .then(result => {
+//     const matches = result.map(ent => ({
+//       id: ent[0],
+//       player1: ent[1],
+//       player2: ent[2],
+//       outcome: ent[3].toNumber() == 0 ? 'Planned' : 'Finished',
+//       matchValue: ent[4].toNumber(),
+//       winnerId: ent[5]
+//     }));
 
-//             let markup = matches.map(mtch => `<div>
-//             <b>${mtch.id}</b><br><p>Status: ${mtch.outcome}<br>Match Value: ${mtch.matchValue} UGT<br>${mtch.player1} vs. ${mtch.player2}</p>
-//             </div>`).join('<br>')
-            
-//             $('#matches').html(JSON.stringify(markup));
-//             console.log(matches);
-//           })
+//     let markup = matches.map(mtch => `<div>
+//     <b>${mtch.id}</b><br><p>Status: ${mtch.outcome}<br>Match Value: ${mtch.matchValue} UGT<br>${mtch.player1} vs. ${mtch.player2}</p>
+//     </div>`).join('<br>')
+
+//     $('#matches').html(JSON.stringify(markup));
+//     console.log(matches);
+//   })
 //         })
 
 //         App.loading = false;
@@ -174,136 +174,213 @@
 
 
 App = {
-  web3Provider: null,
-  contracts: {},
-  account: '0x0',
-  loading: false,
-  tokenPrice: 1000000000000000,
-  tokensSold: 0,
-  tokensAvailable: 4000000,
+    web3Provider: null,
+    contracts: {},
+    account: '0x0',
+    loading: false,
+    tokenPrice: 1000000000000000,
+    tokensSold: 0,
+    tokensAvailable: 4000000,
 
-  init: function() {
-    console.log("App initialized...")
-    return App.initWeb3();
-  },
+    init: function () {
+        console.log("App initialized...")
+        return App.initWeb3();
+    },
 
-  initWeb3: function() {
-    if (typeof web3 !== 'undefined') {
-      // If a web3 instance is already provided by Meta Mask.
-      App.web3Provider = web3.currentProvider;
-      web3 = new Web3(web3.currentProvider);
-    } else {
-      // Specify default instance if no web3 instance provided
-      App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
-      web3 = new Web3(App.web3Provider);
-    }
-    return App.initContracts();
-  },
+    initWeb3: function () {
+        if (typeof web3 !== 'undefined') {
+            // If a web3 instance is already provided by Meta Mask.
+            App.web3Provider = web3.currentProvider;
+            web3 = new Web3(web3.currentProvider);
+        } else {
+            // Specify default instance if no web3 instance provided
+            App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
+            web3 = new Web3(App.web3Provider);
+        }
+        return App.initContracts();
+    },
 
-  initContracts: function() {
-    $.getJSON("UGameTokenSale.json", function(uGameTokenSale) {
-      App.contracts.UGameTokenSale = TruffleContract(uGameTokenSale);
-      App.contracts.UGameTokenSale.setProvider(App.web3Provider);
-      App.contracts.UGameTokenSale.deployed().then(function(uGameTokenSale) {
-        console.log("Dapp Token Sale Address:", uGameTokenSale.address);
-      });
-    }).done(function() {
-      $.getJSON("UGameToken.json", function(uGameToken) {
-        App.contracts.UGameToken = TruffleContract(uGameToken);
-        App.contracts.UGameToken.setProvider(App.web3Provider);
-        App.contracts.UGameToken.deployed().then(function(uGameToken) {
-          console.log("Dapp Token Address:", uGameToken.address);
+    initContracts: function () {
+        $.getJSON("UGameTokenSale.json", function (uGameTokenSale) {
+            App.contracts.UGameTokenSale = TruffleContract(uGameTokenSale);
+            App.contracts.UGameTokenSale.setProvider(App.web3Provider);
+            App.contracts.UGameTokenSale.deployed().then(function (uGameTokenSale) {
+                console.log("Dapp Token Sale Address:", uGameTokenSale.address);
+            });
+
+            $.getJSON("Oracle.json", function (oracle) {
+                App.contracts.Oracle = TruffleContract(oracle);
+                App.contracts.Oracle.setProvider(App.web3Provider);
+                App.contracts.Oracle.deployed().then(function (oracle) {
+                    console.log("Oracle Address:", oracle.address);
+                });
+                $.getJSON("UGameToken.json", function (uGameToken) {
+                    App.contracts.UGameToken = TruffleContract(uGameToken);
+                    App.contracts.UGameToken.setProvider(App.web3Provider);
+                    App.contracts.UGameToken.deployed().then(function (uGameToken) {
+                        console.log("Dapp Token Address:", uGameToken.address);
+                    });
+
+                    App.listenForEvents();
+                    return App.render();
+                });
+            });
+        });
+    },
+
+    // Listen for events emitted from the contract
+    listenForEvents: function () {
+        App.contracts.UGameTokenSale.deployed().then(function (instance) {
+            instance.Sell({}, {
+                fromBlock: 0,
+                toBlock: 'latest',
+            }).watch(function (error, event) {
+                console.log("event triggered", event);
+                App.render();
+            })
         });
 
-        App.listenForEvents();
-        return App.render();
-      });
-    })
-  },
+        App.contracts.Oracle.deployed().then(function (instance) {
+            instance.MatchAdded({}, {
+                fromBlock: 0,
+                toBlock: 'latest',
+            }).watch(function (error, event) {
+                console.log("event triggered", event);
+                App.render();
+            })
+        });
+    },
 
-  // Listen for events emitted from the contract
-  listenForEvents: function() {
-    App.contracts.UGameTokenSale.deployed().then(function(instance) {
-      instance.Sell({}, {
-        fromBlock: 0,
-        toBlock: 'latest',
-      }).watch(function(error, event) {
-        console.log("event triggered", event);
-        App.render();
-      })
-    })
-  },
+    render: function () {
+        if (App.loading) {
+            return;
+        }
+        App.loading = true;
 
-  render: function() {
-    if (App.loading) {
-      return;
+        var loader = $('#loader');
+        var content = $('#content');
+        var oracleLocal = null;
+
+        loader.show();
+        content.hide();
+
+        // Load account data
+        web3.eth.getCoinbase(function (err, account) {
+            if (err === null) {
+                App.account = account;
+                console.log("Your Account: " + account);
+                $('#accountAddress').html("Your Account: " + account);
+            }
+        })
+
+        // Load token sale contract
+        App.contracts.UGameTokenSale.deployed().then(function (instance) {
+            uGameTokenSaleInstance = instance;
+            return uGameTokenSaleInstance.tokenPrice();
+        }).then(function (tokenPrice) {
+            App.tokenPrice = tokenPrice;
+            $('.token-price').html(web3.fromWei(App.tokenPrice, "ether").toNumber());
+            return uGameTokenSaleInstance.tokensSold();
+        }).then(function (tokensSold) {
+            App.tokensSold = tokensSold.toNumber();
+            $('.tokens-sold').html(App.tokensSold);
+            $('.tokens-available').html(App.tokensAvailable);
+
+            var progressPercent = (Math.ceil(App.tokensSold) / App.tokensAvailable) * 100;
+            $('#progress').css('width', progressPercent + '%');
+
+            // Load token contract
+            App.contracts.UGameToken.deployed().then(function (instance) {
+                uGameTokenInstance = instance;
+                return uGameTokenInstance.balanceOf(App.account);
+            }).then(function (balance) {
+                $('.dapp-balance').html(balance.toNumber());
+                return App.contracts.Oracle.deployed();
+            }).then(oracle => {
+                oracleLocal = oracle;
+                return oracle.getMatches();
+            }).then(matches => {
+                Promise.all(matches.map(m => oracleLocal.getMatch(m)))
+                    .then(result => {
+                        const matches = result.map(ent => ({
+                            id: ent[0],
+                            player1: ent[1],
+                            player2: ent[2],
+                            outcome: ent[3].toNumber() == 0 ? 'Planned' : 'Finished',
+                            matchValue: ent[4].toNumber(),
+                            winnerId: ent[5]
+                        }));
+
+                        let markup = matches.map(match => `
+                            <tr>
+                                <th scope="row">${match.id}</th>
+                                <td>${match.player1}</td>
+                                <td>${match.player2}</td>
+                                <td>${match.outcome}</td>
+                                <td>${match.matchValue} UGT</td>
+                                <td>${match.winnerId}</td>
+                            </tr>`).join('<br>');
+
+                        $('#matches').html(`
+                            <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Id</th>
+                                    <th scope="col">First player</th>
+                                    <th scope="col">Second player</th>
+                                    <th scope="col">Outcome</th>
+                                    <th scope="col">Match value</th>
+                                    <th scope="col">Winner</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${markup}
+                            </tbody>
+                            </table>
+                        `);
+                        App.loading = false;
+                        loader.hide();
+                        content.show();
+                    });
+            });
+        });
+    },
+
+    buyTokens: function () {
+        $('#content').hide();
+        $('#loader').show();
+        var numberOfTokens = $('#numberOfTokens').val();
+        App.contracts.UGameTokenSale.deployed().then(function (instance) {
+            return instance.buyTokens(numberOfTokens, {
+                from: App.account,
+                value: numberOfTokens * App.tokenPrice,
+                gas: 500000 // Gas limit
+            });
+        }).then(function (result) {
+            console.log("Tokens bought...")
+            $('form').trigger('reset') // reset number of tokens in form
+            // Wait for Sell event
+        });
+    },
+
+    createMatch: function (id, player1, player2, matchValue) {
+        $('#content').hide();
+        $('#loader').show();
+
+        App.contracts.Oracle.deployed().then(function (instance) {
+            return instance.addMatchByid(id, player1, player2, matchValue, {
+                from: App.account,
+                value: 0,
+                gas: 500000
+            });
+        }).then(function (reset) {
+            console.log('Match added');
+        });
     }
-    App.loading = true;
-
-    var loader  = $('#loader');
-    var content = $('#content');
-
-    loader.show();
-    content.hide();
-
-    // Load account data
-    web3.eth.getCoinbase(function(err, account) {
-      if(err === null) {
-        App.account = account;
-        console.log("Your Account: " + account);
-        $('#accountAddress').html("Your Account: " + account);
-      }
-    })
-
-    // Load token sale contract
-    App.contracts.UGameTokenSale.deployed().then(function(instance) {
-      uGameTokenSaleInstance = instance;
-      return uGameTokenSaleInstance.tokenPrice();
-    }).then(function(tokenPrice) {
-      App.tokenPrice = tokenPrice;
-      $('.token-price').html(web3.fromWei(App.tokenPrice, "ether").toNumber());
-      return uGameTokenSaleInstance.tokensSold();
-    }).then(function(tokensSold) {
-      App.tokensSold = tokensSold.toNumber();
-      $('.tokens-sold').html(App.tokensSold);
-      $('.tokens-available').html(App.tokensAvailable);
-
-      var progressPercent = (Math.ceil(App.tokensSold) / App.tokensAvailable) * 100;
-      $('#progress').css('width', progressPercent + '%');
-
-      // Load token contract
-      App.contracts.UGameToken.deployed().then(function(instance) {
-        uGameTokenInstance = instance;
-        return uGameTokenInstance.balanceOf(App.account);
-      }).then(function(balance) {
-        $('.dapp-balance').html(balance.toNumber());
-        App.loading = false;
-        loader.hide();
-        content.show();
-      })
-    });
-  },
-
-  buyTokens: function() {
-    $('#content').hide();
-    $('#loader').show();
-    var numberOfTokens = $('#numberOfTokens').val();
-    App.contracts.UGameTokenSale.deployed().then(function(instance) {
-      return instance.buyTokens(numberOfTokens, {
-        from: App.account,
-        value: numberOfTokens * App.tokenPrice,
-        gas: 500000 // Gas limit
-      });
-    }).then(function(result) {
-      console.log("Tokens bought...")
-      $('form').trigger('reset') // reset number of tokens in form
-      // Wait for Sell event
-    });
-  }
 }
 
-$(function() {
-  $(window).load(function() {
-    App.init();
-  })
+$(function () {
+    $(window).load(function () {
+        App.init();
+    })
 });

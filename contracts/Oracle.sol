@@ -161,6 +161,8 @@ contract Oracle is Ownable, ChainlinkClient {
             } else {
                 tokenCotract.transferFrom(matches[index].player2, matches[index].player1, matches[index].matchValue);
             }
+
+            emit MatchFinished(msg.sender, genId, _winner);
         } else {
             revert('Winner not participant');
         }

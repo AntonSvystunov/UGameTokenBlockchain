@@ -331,7 +331,6 @@ App = {
 
                         let markup = matches.map(match => `
                             <tr>
-                                <th scope="row">${match.id}</th>
                                 <td>${match.player1} ${match.player1Payed}</td>
                                 <td>${match.player2} ${match.player2Payed}</td>
                                 <td>${match.outcome}</td>
@@ -343,7 +342,6 @@ App = {
                             <table class="table">
                             <thead>
                                 <tr>
-                                    <th scope="col">Id</th>
                                     <th scope="col">First player</th>
                                     <th scope="col">Second player</th>
                                     <th scope="col">Outcome</th>
@@ -381,12 +379,16 @@ App = {
         });
     },
 
-    createMatch: function (id, player1, player2, matchValue) {
+    createMatch: function () {
         $('#content').hide();
         $('#loader').show();
+        let id = $('#match-id').val();
+        let player1 = App.account;
+        let player2 = $('#player-number').val();
+        let amount = $('#amount-number').val();
 
         App.contracts.Oracle.deployed().then(function (instance) {
-            return instance.addMatchByid(id, player1, player2, matchValue, {
+            return instance.addMatchByid(id, player1, player2, amount, {
                 from: App.account,
                 value: 0,
                 gas: 500000

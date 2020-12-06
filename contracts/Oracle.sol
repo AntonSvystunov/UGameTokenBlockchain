@@ -1,7 +1,6 @@
 pragma solidity >=0.4.22 <0.8.0;
 
 import './Ownable.sol';
-import "@chainlink/contracts/src/v0.5/ChainlinkClient.sol";
 import './UGameToken.sol';
 
 contract Oracle {

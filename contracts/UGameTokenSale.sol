@@ -9,6 +9,7 @@ contract UGameTokenSale {
     uint256 public tokensSold;
 
     event Sell(address _buyer, uint256 _amount);
+    event EndSale(uint256 _totalAmountSold);
 
     constructor(UGameToken _tokenContract, uint256 _tokenPrice) public {
         admin = msg.sender;
@@ -17,13 +18,14 @@ contract UGameTokenSale {
     }
 
     function multiply(uint x, uint y) internal pure returns (uint z) {
-        require(y == 0 || (z = x * y) / y == x);
+        require(y != 0);
+        return x * y;
     }
 
     function buyTokens(uint256 _numberOfTokens) public payable {
-        require(msg.value == multiply(_numberOfTokens, tokenPrice));
-        require(tokenContract.balanceOf(address(this)) >= _numberOfTokens);
-        require(tokenContract.transfer(msg.sender, _numberOfTokens));
+        require(msg.value == multiply(_numberOfTokens, tokenPrice), 'msg.value must equal number of tokens in wei');
+        require(tokenContract.balanceOf(address(this)) >= _numberOfTokens, 'cannot purchase more tokens than available');
+        require(tokenContract.transfer(msg.sender, _numberOfTokens), 'Unable to send tokens');
 
         tokensSold += _numberOfTokens;
 
@@ -35,6 +37,7 @@ contract UGameTokenSale {
         require(tokenContract.transfer(admin, tokenContract.balanceOf(address(this))));
 
         admin.transfer(address(this).balance);
+        emit EndSale(tokensSold);
     }
 
 }
